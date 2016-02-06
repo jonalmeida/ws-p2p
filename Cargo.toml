@@ -1,0 +1,6 @@
+[package]
+name = "ws2-pepe"
+version = "0.1.0"
+authors = ["Jonathan Almeida <git@jonalmeida.com>"]
+
+[dependencies]
