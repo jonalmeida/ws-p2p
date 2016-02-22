@@ -34,7 +34,7 @@ struct Client {
     out: ws::Sender,
     // Used for sending the ws::Sender back to main thread through the channel
     thread_out: mpsc::Sender<Event<ws::Sender>>,
-    // A way to hold all connected clients to send all connected peers
+    // A way to hold all connected clients to send them all the same message
     clients: vec::Vec<ws::Sender>,
 }
 
