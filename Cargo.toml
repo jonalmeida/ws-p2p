@@ -1,6 +1,7 @@
 [package]
-name = "ws2-pepe"
+name = "ws-p2p"
 version = "0.1.0"
 authors = ["Jonathan Almeida <git@jonalmeida.com>"]
 
 [dependencies]
+ws = "0.4.*"
