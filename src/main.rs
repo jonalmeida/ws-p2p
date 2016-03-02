@@ -1,102 +1,92 @@
-extern crate ws;
+/// An example of a client/server agnostic WebSocket that takes input from stdin and sends that
+/// input to all other peers.
+///
+/// For example, to create a network like this:
+///
+/// 3013 ---- 3012 ---- 3014
+///   \        |
+///    \       |
+///     \      |
+///      \     |
+///       \    |
+///        \   |
+///         \  |
+///          3015
+///
+/// Run these commands in separate processes
+/// ./peer2peer
+/// ./peer2peer --server localhost:3013 ws://localhost:3012
+/// ./peer2peer --server localhost:3014 ws://localhost:3012
+/// ./peer2peer --server localhost:3015 ws://localhost:3012 ws://localhost:3013
+///
+/// Stdin on 3012 will be sent to all other peers
+/// Stdin on 3013 will be sent to 3012 and 3015
+/// Stdin on 3014 will be sent to 3012 only
+/// Stdin on 3015 will be sent to 3012 and 2013
 
-//use std::cell::RefCell; //unused
+extern crate ws;
+extern crate url;
+extern crate clap;
+extern crate env_logger;
+#[macro_use] extern crate log;
+
 use std::io;
 use std::io::prelude::*;
 use std::thread;
-use std::sync::mpsc;
-use std::sync::mpsc::channel;
-use std::vec;
 
-//use ws::Handler; //unused
-use ws::CloseCode;
-use ws::Error;
-//use ws::ErrorKind; //unused
-use ws::Message;
-use ws::Handshake;
-//use ws::Factory; //unused
+use clap::{App, Arg};
 
 fn main() {
-    let client = Client::connect("ws://127.0.0.1:3012");
+    // Setup logging
+    env_logger::init().unwrap();
 
-    let stdin = io::stdin();
-    for line in stdin.lock().lines() {
-        client.send(line.unwrap());
-    }
-}
+    // Parse command line arguments
+    let matches = App::new("Simple Peer 2 Peer")
+        .version("1.0")
+        .author("Jason Housley <housleyjk@gmail.com>")
+        .about("Connect to other peers and listen for incoming connections.")
+        .arg(Arg::with_name("server")
+             .short("s")
+             .long("server")
+             .value_name("SERVER")
+             .help("Set the address to listen for new connections."))
+        .arg(Arg::with_name("PEER")
+             .help("A WebSocket URL to attempt to connect to at start.")
+             .multiple(true))
+        .get_matches();
 
-enum Event<T> {
-    Connect(T),
-    Disconnect
-}
+    // Get address of this peer
+    let my_addr = matches.value_of("server").unwrap_or("localhost:3012");
 
-struct Client {
-    out: ws::Sender,
-    // Used for sending the ws::Sender back to main thread through the channel
-    thread_out: mpsc::Sender<Event<ws::Sender>>,
-    // A way to hold all connected clients to send them all the same message
-    clients: vec::Vec<ws::Sender>,
-}
-
-impl Client {
-    fn connect(url: &'static str) -> ws::Sender {
-        let (tx, rx) = channel();
-        let client = thread::spawn(move || {
-            ws::connect(url, |out| {
-                out.send("Client has connected..");
-                println!("Connected to server..");
-                Client { out: out, thread_out:tx.clone(), clients: Vec::new() }
-            }).unwrap();
-        });
-
-        if let Event::Connect(sender) = rx.recv().unwrap() {
-            sender
-        } else {
-            //TODO: Find a way to circumvent connection refused until the server is up.
-            panic!("at the disco");
+    // Create simple websocket that just prints out messages
+    let mut me = ws::WebSocket::new(|sender| {
+        move |msg| {
+            Ok(info!("Peer {} got message: {}", my_addr, msg))
         }
-    }
-}
+    }).unwrap();
 
-impl ws::Handler for Client {
-    fn on_open(&mut self, _: Handshake) -> ws::Result<()> {
-        self.thread_out
-			.send(Event::Connect(self.out.clone()))
-			.map_err(|err| ws::Error::new(
-                ws::ErrorKind::Internal,
-                format!("Unable to communicate between threads: {:?}.", err)))
-    }
+    // Get a sender for ALL connections to the websocket
+    let broacaster = me.broadcaster();
 
-    fn on_message(&mut self, msg: Message) -> ws::Result<()> {
-        println!("Recv: {}", msg);
-        Ok(io::stdout().flush().unwrap())
-    }
+    // Setup thread for listening to stdin and sending messages to connections
+    let input = thread::spawn(move || {
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            // Send a message to all connections regardless of
+            // how those connections were established
+            broacaster.send(line.unwrap()).unwrap();
+        }
+    });
 
-    fn on_close(&mut self, code: CloseCode, reason: &str) {
-        match code {
-            CloseCode::Normal => println!("Exited gracefully.."),
-            _ => println!("We fucked up, Bob! {}", reason),
+    // Connect to any existing peers specified on the cli
+    if let Some(peers) = matches.values_of("PEER") {
+        for peer in peers {
+            me.connect(url::Url::parse(peer).unwrap()).unwrap();
         }
     }
 
-    fn on_error(&mut self, err: Error) {
-        println!("We errored: {:?}", err);
-    }
-}
+    // Run the websocket
+    me.listen(my_addr).unwrap();
+    input.join().unwrap();
 
-/*
-//TODO: Implement a factory handler for starting the server
-struct MyHandler {
-	connected_client: ws::Sender,
 }
-
-impl ws::Handler for MyHandler {}
-
-impl ws::Factory for Client {
-    type Handler = Client;
-    fn connection_made(&mut self, sender: ws::Sender) -> Self::Handler {
-		self.clients.push(sender);
-        *self
-    }
-}
-*/
