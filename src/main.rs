@@ -64,6 +64,9 @@ fn main() {
     let my_addr = matches.value_of("server").unwrap_or("localhost:3012");
     let sending_addr = String::new() + my_addr;
 
+    //TODO: Define client map here.
+
+
     // Create simple websocket that just prints out messages
     let mut me = ws::WebSocket::new(|sender| {
         move |msg| {
@@ -71,6 +74,7 @@ fn main() {
                 ws::Message::Binary(vector) => {
                     let encoded_msg = &*vector.into_boxed_slice();
                     let message: PeerMessage = decode(encoded_msg).unwrap();
+                    //TODO: Call message checking function here.
                     Ok(info!("Peer {} with clocks: {:?} got message: {}",
                              message.sender,
                              message.clocks,
@@ -92,10 +96,10 @@ fn main() {
         for line in stdin.lock().lines() {
             // Send a message to all connections regardless of
             // how those connections were established
+            // TODO: Increment my clock here before sending it.
             let clocks = vec![0, 1, 1];
             let message = PeerMessage { sender: sending_addr.clone(), clocks: clocks, message: line.unwrap() };
             let encoded: Vec<u8> = encode(&message, bincode::SizeLimit::Infinite).unwrap();
-            //broacaster.send(line.unwrap()).unwrap();
             broacaster.send(&*encoded.into_boxed_slice()).unwrap();
         }
     });
@@ -104,6 +108,7 @@ fn main() {
     if let Some(peers) = matches.values_of("PEER") {
         for peer in peers {
             me.connect(url::Url::parse(peer).unwrap()).unwrap();
+            //TODO: Add each peer to client map here.
         }
     }
 
@@ -122,3 +127,26 @@ struct PeerMessage {
     // The message that we want to send. For now, we're testing with a string.
     message: String,
 }
+
+//TODO: Message checking function here.
+fn message_checking() {
+    // clocks = peer_message.clocks
+    // clocks: map<string, u32>
+    // for clock in clocks
+    //      if clock.key != local_clock.get(clock.key)
+    //          if clock.value != local_clock.get(clock.key)
+    //              buffer.push(peer_message)
+    //              break
+    //          else
+    //              continue
+    //      else
+    //          if clock.value <= local_clock.get(clock.key).value + 1
+    //              continue
+    //          else
+    //              buffer.push(peer_message)
+    //              break
+    //      approveNewMessage(peer_message)
+}
+
+//TODO: Right a buffer check to be run after every message is received
+//TODO: Write an approveNewMessage to update our local clocks and push message to screen
