@@ -71,7 +71,10 @@ fn main() {
                 ws::Message::Binary(vector) => {
                     let encoded_msg = &*vector.into_boxed_slice();
                     let message: PeerMessage = decode(encoded_msg).unwrap();
-                    Ok(info!("Peer {} got message: {}", message.sender, message.message))
+                    Ok(info!("Peer {} with clocks: {:?} got message: {}",
+                             message.sender,
+                             message.clocks,
+                             message.message))
                 },
                 ws::Message::Text(string) => {
                     Ok(warn!("We received a string, but we don't want to handle it: {}", string))
@@ -89,7 +92,7 @@ fn main() {
         for line in stdin.lock().lines() {
             // Send a message to all connections regardless of
             // how those connections were established
-            let clocks = vec![0u32, 1u32, 1u32];
+            let clocks = vec![0, 1, 1];
             let message = PeerMessage { sender: sending_addr.clone(), clocks: clocks, message: line.unwrap() };
             let encoded: Vec<u8> = encode(&message, bincode::SizeLimit::Infinite).unwrap();
             //broacaster.send(line.unwrap()).unwrap();
