@@ -32,10 +32,12 @@ extern crate rustc_serialize;
 extern crate bincode;
 #[macro_use] extern crate log;
 
+use std::collections::hash_map::HashMap;
 use std::clone::Clone;
 use std::io;
 use std::io::prelude::*;
 use std::thread;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use bincode::rustc_serialize::{encode, decode};
 
@@ -62,29 +64,17 @@ fn main() {
 
     // Get address of this peer
     let my_addr = matches.value_of("server").unwrap_or("localhost:3012");
-    let sending_addr = String::new() + my_addr;
+    let sending_addr = String::from(my_addr);
 
-    //TODO: Define client map here.
-
+    let mut clock = HashMap::new();
+    clock.insert(sending_addr.clone(), 0u32);
+    let clocks = Arc::new(Mutex::new(clock));
+    let connecting_clocks = clocks.clone();
+    let address_copy = sending_addr.clone();
 
     // Create simple websocket that just prints out messages
     let mut me = ws::WebSocket::new(|sender| {
-        move |msg| {
-            match msg {
-                ws::Message::Binary(vector) => {
-                    let encoded_msg = &*vector.into_boxed_slice();
-                    let message: PeerMessage = decode(encoded_msg).unwrap();
-                    //TODO: Call message checking function here.
-                    Ok(info!("Peer {} with clocks: {:?} got message: {}",
-                             message.sender,
-                             message.clocks,
-                             message.message))
-                },
-                ws::Message::Text(string) => {
-                    Ok(warn!("We received a string, but we don't want to handle it: {}", string))
-                },
-            }
-        }
+        MyHandler { ws: sender, clocks: connecting_clocks.clone(), me: address_copy.clone() }
     }).unwrap();
 
     // Get a sender for ALL connections to the websocket
@@ -96,10 +86,21 @@ fn main() {
         for line in stdin.lock().lines() {
             // Send a message to all connections regardless of
             // how those connections were established
-            // TODO: Increment my clock here before sending it.
-            let clocks = vec![0, 1, 1];
-            let message = PeerMessage { sender: sending_addr.clone(), clocks: clocks, message: line.unwrap() };
+
+            // TO-DO: Increment my clock here before sending it.
+            let clock_clone = clocks.clone();
+            let mut clock_lock = clock_clone.lock().unwrap();
+            *clock_lock.get_mut(&sending_addr.clone()).unwrap() += 1;
+
+            let message =
+                PeerMessage {
+                    sender: sending_addr.clone(),
+                    clocks: clock_lock.clone(),
+                    message: line.unwrap()
+                };
             let encoded: Vec<u8> = encode(&message, bincode::SizeLimit::Infinite).unwrap();
+
+            // Sending bytes to all connected clients
             broacaster.send(&*encoded.into_boxed_slice()).unwrap();
         }
     });
@@ -107,8 +108,8 @@ fn main() {
     // Connect to any existing peers specified on the cli
     if let Some(peers) = matches.values_of("PEER") {
         for peer in peers {
+            let addrs = peer.clone();
             me.connect(url::Url::parse(peer).unwrap()).unwrap();
-            //TODO: Add each peer to client map here.
         }
     }
 
@@ -118,35 +119,103 @@ fn main() {
 
 }
 
-#[derive(RustcEncodable, RustcDecodable, PartialEq)]
+struct MyHandler {
+    // Sender that is used to communicate for my handler
+    ws: ws::Sender,
+    // An arc clone of my local vector clocks
+    clocks: Arc<Mutex<HashMap<String, u32>>>,
+    // My address/name
+    me: String,
+}
+
+impl ws::Handler for MyHandler {
+    fn on_open(&mut self, handshake: ws::Handshake) -> ws::Result<()> {
+        let mut clocks = self.clocks.lock().unwrap();
+        let addr = handshake.request.client_addr().unwrap();
+        warn!("Connected with {:?}.", addr);
+        if let Some(addrs) = addr {
+            //warn!("Connected with {}.", addrs);
+            clocks.insert(String::from(addrs), 0u32);
+        }
+        Ok(())
+    }
+    fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
+        match msg {
+            ws::Message::Binary(vector) => {
+                let encoded_msg = &*vector.into_boxed_slice();
+                let message: PeerMessage = decode(encoded_msg).unwrap();
+
+                // Checkings if all clients have everyone's clocks
+                let mut clocks = self.clocks.lock().unwrap();
+                for (key, val) in message.clocks.iter() {
+                    let value = val.clone();
+                    let keyer = key.clone();
+                    if !clocks.contains_key(&keyer) {
+                        clocks.insert(String::from(keyer), value);
+                    }
+                }
+
+                message_checking(&mut clocks, message.clone());
+                Ok(())
+            },
+            ws::Message::Text(string) => Ok(warn!("Received a string, but don't want to handle it: {}", string)),
+        }
+    }
+    fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
+        if reason.is_empty() {
+            info!("Client disconnected with code: {:?}", code);
+        } else {
+            info!("Client disconnected with code: {:?} and reason: {}", code, reason);
+        }
+    }
+    fn on_error(&mut self, err: ws::Error) {
+        info!("Error family robinson!");
+    }
+}
+
+#[derive(RustcEncodable, RustcDecodable, PartialEq, Clone)]
 struct PeerMessage {
     // Host address passed in via CLI. Used for identification.
     sender: String,
     // Vector clocks for each process.
-    clocks: Vec<u32>,
+    clocks: HashMap<String, u32>,
     // The message that we want to send. For now, we're testing with a string.
     message: String,
 }
 
-//TODO: Message checking function here.
-fn message_checking() {
-    // clocks = peer_message.clocks
-    // clocks: map<string, u32>
-    // for clock in clocks
-    //      if clock.key != local_clock.get(clock.key)
-    //          if clock.value != local_clock.get(clock.key)
-    //              buffer.push(peer_message)
-    //              break
-    //          else
-    //              continue
-    //      else
-    //          if clock.value <= local_clock.get(clock.key).value + 1
-    //              continue
-    //          else
-    //              buffer.push(peer_message)
-    //              break
-    //      approveNewMessage(peer_message)
+fn message_checking(local_clocks: &mut MutexGuard<HashMap<String, u32>>, incoming_message: PeerMessage) {
+    let local_clock = local_clocks;
+    let message_clocks = incoming_message.clocks.clone();
+    for (key, val) in message_clocks.iter() {
+        info!("Looking at key: {}", key);
+        //let key_clone = key.clone();
+        let sender_clone = incoming_message.sender.clone();
+        if !message_clocks.contains_key(&key.clone()) {
+            local_clock.insert(String::from(key.clone()), 0u32);
+        }
+        if key.clone().into_boxed_str() == sender_clone.clone().into_boxed_str() {
+            //local_clocks.get(&key_clone).unwrap()
+            info!("Looking at val: {}", *val);
+            if *val != *local_clock.get(&sender_clone.clone()).unwrap() + 1 {
+                info!("Buffering.. message: {}", incoming_message.message);
+                // buffer.push_back
+                ()
+            }
+        } else {
+            if *val == *local_clock.get(&sender_clone.clone()).unwrap() {
+                //buffer.flush
+                continue;
+            } else {
+                //buffer.push();
+                ()
+            }
+            //approve_new_messages();
+        }
+    }
+    for (key, val) in message_clocks.iter() {
+        local_clock.insert(key.clone(), val.clone());
+    }
+    info!("Peer {} with clocks: {:?} got message: {}",
+            incoming_message.sender, incoming_message.clocks, incoming_message.message);
 }
 
-//TODO: Right a buffer check to be run after every message is received
-//TODO: Write an approveNewMessage to update our local clocks and push message to screen
