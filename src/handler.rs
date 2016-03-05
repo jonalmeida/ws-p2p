@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use bincode::rustc_serialize::decode;
 
 /// Connection handler for incoming messages.
-pub struct MyHandler {
+pub struct MessageHandler {
     /// Sender that is used to communicate for the handler.
     pub ws: ws::Sender,
     /// An arc clone of my local vector clocks.
@@ -17,7 +17,7 @@ pub struct MyHandler {
 }
 
 //TODO: When connected to another client, add it to the `clocks`.
-impl ws::Handler for MyHandler {
+impl ws::Handler for MessageHandler {
     fn on_open(&mut self, handshake: ws::Handshake) -> ws::Result<()> {
         let mut clocks = self.clocks.lock().unwrap();
         let addr = handshake.request.client_addr().unwrap();

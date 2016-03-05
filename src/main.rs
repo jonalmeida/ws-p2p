@@ -36,7 +36,7 @@ pub mod handler;
 pub mod message;
 
 use message::PeerMessage;
-use handler::MyHandler;
+use handler::MessageHandler;
 
 use std::collections::hash_map::HashMap;
 use std::clone::Clone;
@@ -56,7 +56,7 @@ fn main() {
     // Parse command line arguments
     let matches = App::new("Simple Peer 2 Peer")
         .version("1.0")
-        .author("Jonathan Almeida <hello@jonalmeida.com")
+        .author("Jonathan Almeida <hello@jonalmeida.com>")
         .about("Connect to other peers and listen for incoming connections.")
         .arg(Arg::with_name("server")
              .short("s")
@@ -80,7 +80,7 @@ fn main() {
 
     // Create simple websocket that just prints out messages
     let mut me = ws::WebSocket::new(|sender| {
-        MyHandler { ws: sender, clocks: connecting_clocks.clone(), me: address_copy.clone() }
+        MessageHandler { ws: sender, clocks: connecting_clocks.clone(), me: address_copy.clone() }
     }).unwrap();
 
     // Get a sender for ALL connections to the websocket
