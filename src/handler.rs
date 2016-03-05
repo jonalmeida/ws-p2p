@@ -6,15 +6,17 @@ use std::sync::{Arc, Mutex};
 
 use bincode::rustc_serialize::decode;
 
+/// Connection handler for incoming messages.
 pub struct MyHandler {
-    // Sender that is used to communicate for my handler
+    /// Sender that is used to communicate for the handler.
     pub ws: ws::Sender,
-    // An arc clone of my local vector clocks
+    /// An arc clone of my local vector clocks.
     pub clocks: Arc<Mutex<HashMap<String, u32>>>,
-    // My address/name
+    /// My address/name.
     pub me: String,
 }
 
+//TODO: When connected to another client, add it to the `clocks`.
 impl ws::Handler for MyHandler {
     fn on_open(&mut self, handshake: ws::Handshake) -> ws::Result<()> {
         let mut clocks = self.clocks.lock().unwrap();
