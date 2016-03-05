@@ -1,0 +1,63 @@
+extern crate ws;
+
+use message::PeerMessage;
+use std::collections::hash_map::HashMap;
+use std::sync::{Arc, Mutex};
+
+use bincode::rustc_serialize::decode;
+
+pub struct MyHandler {
+    // Sender that is used to communicate for my handler
+    pub ws: ws::Sender,
+    // An arc clone of my local vector clocks
+    pub clocks: Arc<Mutex<HashMap<String, u32>>>,
+    // My address/name
+    pub me: String,
+}
+
+impl ws::Handler for MyHandler {
+    fn on_open(&mut self, handshake: ws::Handshake) -> ws::Result<()> {
+        let mut clocks = self.clocks.lock().unwrap();
+        let addr = handshake.request.client_addr().unwrap();
+        warn!("Connected with {:?}.", addr);
+        if let Some(addrs) = addr {
+            //warn!("Connected with {}.", addrs);
+            clocks.insert(String::from(addrs), 0u32);
+        }
+        Ok(())
+    }
+    fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
+        match msg {
+            ws::Message::Binary(vector) => {
+                let encoded_msg = &*vector.into_boxed_slice();
+                let message: PeerMessage = decode(encoded_msg).unwrap();
+
+                // Checkings if all clients have everyone's clocks
+                let mut clocks = self.clocks.lock().unwrap();
+                for (key, val) in message.clocks.iter() {
+                    let value = val.clone();
+                    let keyer = key.clone();
+                    if !clocks.contains_key(&keyer) {
+                        clocks.insert(String::from(keyer), value);
+                    }
+                }
+
+                info!("Peer {} with clocks: {:?} got message: {}",
+                        message.sender, message.clocks, message.message);
+                //message_checking(&mut clocks, message.clone());
+                Ok(())
+            },
+            ws::Message::Text(string) => Ok(warn!("Received a string, but don't want to handle it: {}", string)),
+        }
+    }
+    fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
+        if reason.is_empty() {
+            info!("Client disconnected with code: {:?}", code); //This works: CloseCode::Abnormal
+        } else {
+            info!("Client disconnected with code: {:?} and reason: {}", code, reason);
+        }
+    }
+    fn on_error(&mut self, err: ws::Error) {
+        info!("Error family robinson!");
+    }
+}
