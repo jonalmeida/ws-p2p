@@ -18,16 +18,16 @@ pub struct MessageHandler {
 
 //TODO: When connected to another client, add it to the `clocks`.
 impl ws::Handler for MessageHandler {
+    /*
     fn on_open(&mut self, handshake: ws::Handshake) -> ws::Result<()> {
         let mut clocks = self.clocks.lock().unwrap();
         let addr = handshake.request.client_addr().unwrap();
-        warn!("Connected with {:?}.", addr);
         if let Some(addrs) = addr {
             //warn!("Connected with {}.", addrs);
             clocks.insert(String::from(addrs), 0u32);
         }
         Ok(())
-    }
+    }*/
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
         match msg {
             ws::Message::Binary(vector) => {
@@ -60,6 +60,47 @@ impl ws::Handler for MessageHandler {
         }
     }
     fn on_error(&mut self, err: ws::Error) {
-        info!("Error family robinson!");
+        warn!("Error family robinson! {:?}", err);
+    }
+}
+
+pub struct MessageFactory {
+    vclocks: Arc<Mutex<HashMap<String, u32>>>,
+    me: String,
+}
+
+impl MessageFactory {
+    fn build(vclocks: Arc<Mutex<HashMap<String, u32>>>) -> MessageFactory {
+        MessageFactory {
+            vclocks: vclocks.clone(),
+            me: String::from("undefined"),
+        }
+    }
+    fn me(&self, me: &str) -> MessageFactory {
+        MessageFactory {
+            vclocks: self.vclocks.clone(),
+            me: String::from(me),
+        }
+    }
+}
+
+impl ws::Factory for MessageFactory {
+    type Handler = MessageHandler;
+
+    fn connection_made(&mut self, ws: ws::Sender) -> Self::Handler {
+        warn!("Connected with {:?}.", ws);
+        MessageHandler {
+            ws: ws,
+            clocks: self.vclocks.clone(),
+            me: self.me.clone(),
+        }
+    }
+
+    fn server_connected(&mut self, ws: ws::Sender) -> Self::Handler {
+        MessageHandler {
+            ws: ws,
+            clocks: self.vclocks.clone(),
+            me: self.me.clone(),
+        }
     }
 }

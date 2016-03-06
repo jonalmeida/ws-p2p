@@ -36,7 +36,7 @@ pub mod handler;
 pub mod message;
 
 use message::PeerMessage;
-use handler::MessageHandler;
+use handler::*;
 
 use std::collections::hash_map::HashMap;
 use std::clone::Clone;
@@ -81,6 +81,8 @@ fn main() {
     // Create simple websocket that just prints out messages
     let mut me = ws::WebSocket::new(|sender| {
         MessageHandler { ws: sender, clocks: connecting_clocks.clone(), me: address_copy.clone() }
+//        MessageFactory::build(connecting_clocks.clone())
+//            .me(address_copy.clone().as_str())
     }).unwrap();
 
     // Get a sender for ALL connections to the websocket
