@@ -91,7 +91,7 @@ impl ws::Factory for MessageFactory {
     }
 
     fn server_connected(&mut self, ws: ws::Sender) -> Self::Handler {
-        let _ = ws.send(self.me.clone());
+        ws.send(self.me.clone()).unwrap();
         MessageHandler {
             ws: ws,
             clocks: self.vclocks.clone(),
@@ -100,7 +100,7 @@ impl ws::Factory for MessageFactory {
     }
 
     fn client_connected(&mut self, ws: ws::Sender) -> Self::Handler {
-        let _ = ws.send(self.me.clone());
+        ws.send(self.me.clone()).unwrap();
         MessageHandler {
             ws: ws,
             clocks: self.vclocks.clone(),
