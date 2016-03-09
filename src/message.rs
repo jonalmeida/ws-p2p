@@ -13,3 +13,4 @@ pub struct PeerMessage {
     /// The message that we want to send. For now, we're testing with a string.
     pub message: String,
 }
+

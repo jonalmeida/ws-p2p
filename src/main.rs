@@ -79,11 +79,10 @@ fn main() {
     let address_copy = sending_addr.clone();
 
     // Create simple websocket that just prints out messages
-    let mut me = ws::WebSocket::new(|sender| {
-        MessageHandler { ws: sender, clocks: connecting_clocks.clone(), me: address_copy.clone() }
-//        MessageFactory::build(connecting_clocks.clone())
-//            .me(address_copy.clone().as_str())
-    }).unwrap();
+    let mut me  = ws::WebSocket::new(
+        MessageFactory::build(connecting_clocks.clone())
+            .me(address_copy.clone().as_str())
+        ).unwrap();
 
     // Get a sender for ALL connections to the websocket
     let broacaster = me.broadcaster();
