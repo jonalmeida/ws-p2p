@@ -115,7 +115,6 @@ fn main() {
     // Connect to any existing peers specified on the cli
     if let Some(peers) = matches.values_of("PEER") {
         for peer in peers {
-            let addrs = peer.clone();
             me.connect(url::Url::parse(peer).unwrap()).unwrap();
         }
     }

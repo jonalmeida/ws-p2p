@@ -40,9 +40,10 @@ impl ws::Handler for MessageHandler {
                 Ok(())
             },
             ws::Message::Text(string) => {
+                info!("Received peer's name. Adding {} to the client list", string);
                 let mut clocks = self.clocks.lock().unwrap();
-                clocks.insert(string.clone(), 0u32);
-                Ok(info!("Received peer's name. Adding {} to the client list", string))
+                clocks.insert(string, 0u32);
+                Ok(())
             }
         }
     }
@@ -66,7 +67,7 @@ pub struct MessageFactory {
 impl MessageFactory {
     pub fn build(vclocks: Arc<Mutex<HashMap<String, u32>>>) -> MessageFactory {
         MessageFactory {
-            vclocks: vclocks.clone(),
+            vclocks: vclocks,
             me: String::from("undefined"),
         }
     }
@@ -90,7 +91,7 @@ impl ws::Factory for MessageFactory {
     }
 
     fn server_connected(&mut self, ws: ws::Sender) -> Self::Handler {
-        ws.send(self.me.clone());
+        let _ = ws.send(self.me.clone());
         MessageHandler {
             ws: ws,
             clocks: self.vclocks.clone(),
@@ -99,7 +100,7 @@ impl ws::Factory for MessageFactory {
     }
 
     fn client_connected(&mut self, ws: ws::Sender) -> Self::Handler {
-        ws.send(self.me.clone());
+        let _ = ws.send(self.me.clone());
         MessageHandler {
             ws: ws,
             clocks: self.vclocks.clone(),
