@@ -4,6 +4,7 @@ use message::PeerMessage;
 
 use std::cmp;
 use std::collections::hash_map::HashMap;
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::thread;
@@ -20,6 +21,8 @@ pub struct MessageHandler {
     pub clocks: Arc<Mutex<HashMap<String, u32>>>,
     /// My address/name.
     pub me: String,
+    /// Buffer of messages that caused conflicts when initially received.
+    pub buffer: Arc<Mutex<VecDeque<PeerMessage>>>,
 }
 
 impl ws::Handler for MessageHandler {
@@ -64,6 +67,7 @@ impl ws::Handler for MessageHandler {
 pub struct MessageFactory {
     vclocks: Arc<Mutex<HashMap<String, u32>>>,
     me: String,
+    buffer: Arc<Mutex<VecDeque<PeerMessage>>>,
 }
 
 impl MessageFactory {
@@ -71,12 +75,14 @@ impl MessageFactory {
         MessageFactory {
             vclocks: vclocks,
             me: String::from("undefined"),
+            buffer: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
     pub fn me(&self, me: &str) -> MessageFactory {
         MessageFactory {
             vclocks: self.vclocks.clone(),
             me: String::from(me),
+            buffer: self.buffer.clone(),
         }
     }
 }
@@ -89,6 +95,7 @@ impl ws::Factory for MessageFactory {
             ws: ws,
             clocks: self.vclocks.clone(),
             me: self.me.clone(),
+            buffer: self.buffer.clone(),
         }
     }
 
@@ -98,6 +105,7 @@ impl ws::Factory for MessageFactory {
             ws: ws,
             clocks: self.vclocks.clone(),
             me: self.me.clone(),
+            buffer: self.buffer.clone(),
         }
     }
 
@@ -107,6 +115,7 @@ impl ws::Factory for MessageFactory {
             ws: ws,
             clocks: self.vclocks.clone(),
             me: self.me.clone(),
+            buffer: self.buffer.clone(),
         }
     }
 }
@@ -143,5 +152,4 @@ fn message_handler(message: PeerMessage, vclocks: Arc<Mutex<HashMap<String, u32>
 //	}
     //let map = hashmap!['a' => 0, 'b' => 1];
 }
-
 
