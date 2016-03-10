@@ -32,13 +32,12 @@ impl ws::Handler for MessageHandler {
                 let encoded_msg = &*vector.into_boxed_slice();
                 let message: PeerMessage = decode(encoded_msg).unwrap();
 
-                info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
-                        message.sender, message.clocks, message.message);
                 if message.sender.as_str() == "127.0.0.1:3013" {
                     info!(target: LIB_NAME, "Faking delay!");
                     thread::sleep(Duration::from_millis(4000))
                 }
-                //message_checking(&mut clocks, message.clone());
+                info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
+                        message.sender, message.clocks, message.message);
 				self.message_handler(message);
                 self.buffer_check();
                 Ok(())
