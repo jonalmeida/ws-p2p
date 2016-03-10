@@ -121,14 +121,6 @@ impl MessageHandler {
             let max_val = cmp::max(val, &lval);
             vclocks.insert(key.clone(), *max_val);
         }
-    //	macro_rules! hashmap {
-    //		($( $key: expr => $val: expr ),*) => {{
-    //			 let mut map = ::std::collections::HashMap::new();
-    //			 $( map.insert($key, $val); )*
-    //			 map
-    //		}}
-    //	}
-        //let map = hashmap!['a' => 0, 'b' => 1];
     }
 }
 
