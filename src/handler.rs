@@ -10,6 +10,8 @@ use std::thread;
 
 use bincode::rustc_serialize::decode;
 
+static LIB_NAME: &'static str = "ws-p2p";
+
 /// Connection handler for incoming messages.
 pub struct MessageHandler {
     /// Sender that is used to communicate for the handler.
@@ -20,7 +22,6 @@ pub struct MessageHandler {
     pub me: String,
 }
 
-//TODO: When connected to another client, add it to the `clocks`.
 impl ws::Handler for MessageHandler {
     fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
         match msg {
@@ -28,10 +29,10 @@ impl ws::Handler for MessageHandler {
                 let encoded_msg = &*vector.into_boxed_slice();
                 let message: PeerMessage = decode(encoded_msg).unwrap();
 
-                info!("Peer {} with clocks: {:?} got message: {}",
+                info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
                         message.sender, message.clocks, message.message);
                 if message.sender.as_str() == "127.0.0.1:3013" {
-                    info!("Faking delay!");
+                    info!(target: LIB_NAME, "Faking delay!");
                     thread::sleep(Duration::from_millis(4000))
                 }
                 //message_checking(&mut clocks, message.clone());
@@ -39,7 +40,7 @@ impl ws::Handler for MessageHandler {
                 Ok(())
             },
             ws::Message::Text(string) => {
-                info!("Received peer's name. Adding {} to the client list", string);
+                info!(target: LIB_NAME, "Received peer's name. Adding {} to the client list", string);
                 let mut clocks = self.clocks.lock().unwrap();
                 clocks.insert(string, 0u32);
                 Ok(())
@@ -49,13 +50,14 @@ impl ws::Handler for MessageHandler {
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
         //TODO: Remove disconnected client's clock from our vclock copy.
         if reason.is_empty() {
-            info!("Client disconnected with code: {:?}", code); //This works: CloseCode::Abnormal
+            //This works: CloseCode::Abnormal
+            info!(target: LIB_NAME, "Client disconnected with code: {:?}", code);
         } else {
-            info!("Client disconnected with code: {:?} and reason: {}", code, reason);
+            info!(target: LIB_NAME, "Client disconnected with code: {:?} and reason: {}", code, reason);
         }
     }
     fn on_error(&mut self, err: ws::Error) {
-        warn!("Error family robinson! {:?}", err.kind);
+        warn!(target: LIB_NAME, "Error family robinson! {:?}", err.kind);
     }
 }
 
@@ -113,14 +115,14 @@ fn message_handler(message: PeerMessage, vclocks: Arc<Mutex<HashMap<String, u32>
     let mut vclocks = vclocks.lock().unwrap();
     for (key, val) in message.clocks.iter() {
         if let Some(lval) = vclocks.get(&key.clone()) {
-            info!("key: {} incoming val: {} and lval: {}", key, val, lval);
+            debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
             if lval <= val {
-                info!("val <= lval");
+                debug!(target: LIB_NAME, "val <= lval");
                 continue;
             } else { // There's a clock that is greater than what we have
                 // Push to local buffer
                 // return
-                info!("clock discrepency");
+                debug!(target: LIB_NAME, "clock discrepency");
                 ()
             }
         }
