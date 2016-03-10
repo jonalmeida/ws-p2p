@@ -36,7 +36,7 @@ pub mod handler;
 pub mod message;
 
 use message::PeerMessage;
-use handler::*;
+use handler::MessageFactory;
 
 use std::collections::hash_map::HashMap;
 use std::clone::Clone;
