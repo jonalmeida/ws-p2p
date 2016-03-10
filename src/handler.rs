@@ -39,7 +39,8 @@ impl ws::Handler for MessageHandler {
                     thread::sleep(Duration::from_millis(4000))
                 }
                 //message_checking(&mut clocks, message.clone());
-				message_handler(message, self.clocks.clone());
+				self.message_handler(message);
+                self.buffer_check();
                 Ok(())
             },
             ws::Message::Text(string) => {
@@ -61,6 +62,74 @@ impl ws::Handler for MessageHandler {
     }
     fn on_error(&mut self, err: ws::Error) {
         warn!(target: LIB_NAME, "Error family robinson! {:?}", err.kind);
+    }
+}
+
+impl MessageHandler {
+    fn buffer_check(&self) {
+        debug!("trying to get lock");
+        let mut buffer = self.buffer.lock().unwrap();
+        let buffer_clone = buffer.clone();
+        for message in buffer_clone.iter() {
+            debug!("Are we getting here?");
+            let mut vclocks = self.clocks.lock().unwrap();
+            for (key, val) in message.clocks.iter() {
+                if let Some(lval) = vclocks.get(&key.clone()) {
+                    debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
+                    if lval <= val {
+                        debug!(target: LIB_NAME, "val <= lval");
+                        continue;
+                    } else { // There's a clock that is greater than what we have
+                        debug!(target: LIB_NAME, "discrepency still exists");
+                        ()
+                    }
+                }
+            }
+
+            // Update clocks
+            for (key, val) in message.clocks.iter() {
+                let lval = vclocks.get(&key.clone()).unwrap().clone();
+                let max_val = cmp::max(val, &lval);
+                vclocks.insert(key.clone(), *max_val);
+                info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
+                        message.sender, message.clocks, message.message);
+            }
+            buffer.pop_front();
+        }
+    }
+    fn message_handler(&self, message: PeerMessage) {
+        let mut vclocks = self.clocks.lock().unwrap();
+        for (key, val) in message.clocks.iter() {
+            if let Some(lval) = vclocks.get(&key.clone()) {
+                debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
+                if lval <= val {
+                    debug!(target: LIB_NAME, "val <= lval");
+                    continue;
+                } else { // There's a clock that is greater than what we have
+                    // Push to local buffer
+                    let mut buffer = self.buffer.lock().unwrap();
+                    // return
+                    debug!(target: LIB_NAME, "clock discrepency");
+                    //self.buffer_check();
+                    ()
+                }
+            }
+        }
+
+        // Update clocks
+        for (key, val) in message.clocks.iter() {
+            let lval = vclocks.get(&key.clone()).unwrap().clone();
+            let max_val = cmp::max(val, &lval);
+            vclocks.insert(key.clone(), *max_val);
+        }
+    //	macro_rules! hashmap {
+    //		($( $key: expr => $val: expr ),*) => {{
+    //			 let mut map = ::std::collections::HashMap::new();
+    //			 $( map.insert($key, $val); )*
+    //			 map
+    //		}}
+    //	}
+        //let map = hashmap!['a' => 0, 'b' => 1];
     }
 }
 
@@ -118,38 +187,5 @@ impl ws::Factory for MessageFactory {
             buffer: self.buffer.clone(),
         }
     }
-}
-
-fn message_handler(message: PeerMessage, vclocks: Arc<Mutex<HashMap<String, u32>>>) {
-    let mut vclocks = vclocks.lock().unwrap();
-    for (key, val) in message.clocks.iter() {
-        if let Some(lval) = vclocks.get(&key.clone()) {
-            debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
-            if lval <= val {
-                debug!(target: LIB_NAME, "val <= lval");
-                continue;
-            } else { // There's a clock that is greater than what we have
-                // Push to local buffer
-                // return
-                debug!(target: LIB_NAME, "clock discrepency");
-                ()
-            }
-        }
-    }
-
-    // Update clocks
-    for (key, val) in message.clocks.iter() {
-        let lval = vclocks.get(&key.clone()).unwrap().clone();
-        let max_val = cmp::max(val, &lval);
-        vclocks.insert(key.clone(), *max_val);
-    }
-//	macro_rules! hashmap {
-//		($( $key: expr => $val: expr ),*) => {{
-//			 let mut map = ::std::collections::HashMap::new();
-//			 $( map.insert($key, $val); )*
-//			 map
-//		}}
-//	}
-    //let map = hashmap!['a' => 0, 'b' => 1];
 }
 
