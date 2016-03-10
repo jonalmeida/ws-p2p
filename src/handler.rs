@@ -1,6 +1,8 @@
 extern crate ws;
 
 use message::PeerMessage;
+
+use std::cmp;
 use std::collections::hash_map::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -26,18 +28,19 @@ impl ws::Handler for MessageHandler {
 
                 // Checkings if all clients have everyone's clocks
                 //TODO: Maybe remove this since we add vclocks on connect? Test first!
-                let mut clocks = self.clocks.lock().unwrap();
-                for (key, val) in message.clocks.iter() {
-                    let value = val.clone();
-                    let keyer = key.clone();
-                    if !clocks.contains_key(&keyer) {
-                        clocks.insert(String::from(keyer), value);
-                    }
-                }
+//                let mut clocks = self.clocks.lock().unwrap();
+//                for (key, val) in message.clocks.iter() {
+//                    let value = val.clone();
+//                    let keyer = key.clone();
+//                    if !clocks.contains_key(&keyer) {
+//                        clocks.insert(String::from(keyer), value);
+//                    }
+//                }
 
                 info!("Peer {} with clocks: {:?} got message: {}",
                         message.sender, message.clocks, message.message);
                 //message_checking(&mut clocks, message.clone());
+				message_handler(message, self.clocks.clone());
                 Ok(())
             },
             ws::Message::Text(string) => {
@@ -113,5 +116,35 @@ impl ws::Factory for MessageFactory {
 
 fn message_handler(message: PeerMessage, vclocks: Arc<Mutex<HashMap<String, u32>>>) {
     let mut vclocks = vclocks.lock().unwrap();
-    let recv_clock_val = vclocks.get_mut(&message.sender).unwrap();
+    for (key, val) in message.clocks.iter() {
+        if let Some(lval) = vclocks.get(&key.clone()) {
+            info!("key: {} incoming val: {} and lval: {}", key, val, lval);
+            if lval <= val {
+                info!("val <= lval");
+                continue;
+            } else { // There's a clock that is greater than what we have
+                // Push to local buffer
+                // return
+                info!("clock discrepency");
+                ()
+            }
+        }
+    }
+
+    // Update clocks
+    for (key, val) in message.clocks.iter() {
+        let lval = vclocks.get(&key.clone()).unwrap().clone();
+        let max_val = cmp::max(val, &lval);
+        vclocks.insert(key.clone(), *max_val);
+    }
+//	macro_rules! hashmap {
+//		($( $key: expr => $val: expr ),*) => {{
+//			 let mut map = ::std::collections::HashMap::new();
+//			 $( map.insert($key, $val); )*
+//			 map
+//		}}
+//	}
+    //let map = hashmap!['a' => 0, 'b' => 1];
 }
+
+
