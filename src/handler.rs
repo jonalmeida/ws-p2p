@@ -5,6 +5,8 @@ use message::PeerMessage;
 use std::cmp;
 use std::collections::hash_map::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use std::thread;
 
 use bincode::rustc_serialize::decode;
 
@@ -26,19 +28,12 @@ impl ws::Handler for MessageHandler {
                 let encoded_msg = &*vector.into_boxed_slice();
                 let message: PeerMessage = decode(encoded_msg).unwrap();
 
-                // Checkings if all clients have everyone's clocks
-                //TODO: Maybe remove this since we add vclocks on connect? Test first!
-//                let mut clocks = self.clocks.lock().unwrap();
-//                for (key, val) in message.clocks.iter() {
-//                    let value = val.clone();
-//                    let keyer = key.clone();
-//                    if !clocks.contains_key(&keyer) {
-//                        clocks.insert(String::from(keyer), value);
-//                    }
-//                }
-
                 info!("Peer {} with clocks: {:?} got message: {}",
                         message.sender, message.clocks, message.message);
+                if message.sender.as_str() == "127.0.0.1:3013" {
+                    info!("Faking delay!");
+                    thread::sleep(Duration::from_millis(4000))
+                }
                 //message_checking(&mut clocks, message.clone());
 				message_handler(message, self.clocks.clone());
                 Ok(())
