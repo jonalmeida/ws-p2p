@@ -91,20 +91,21 @@ fn main() {
     let input = thread::spawn(move || {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
-            // Send a message to all connections regardless of
-            // how those connections were established
 
-            // TO-DO: Increment my clock here before sending it.
+            // Incrementing clock before sending
             let clock_clone = clocks.clone();
             let mut clock_lock = clock_clone.lock().unwrap();
             *clock_lock.get_mut(&sending_addr.clone()).unwrap() += 1;
 
+            // Constructing new message
             let message =
                 PeerMessage {
                     sender: sending_addr.clone(),
                     clocks: clock_lock.clone(),
                     message: line.unwrap()
                 };
+
+            // Encoding into bytes
             let encoded: Vec<u8> = encode(&message, bincode::SizeLimit::Infinite).unwrap();
 
             // Sending bytes to all connected clients

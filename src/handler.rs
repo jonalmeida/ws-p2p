@@ -25,6 +25,7 @@ impl ws::Handler for MessageHandler {
                 let message: PeerMessage = decode(encoded_msg).unwrap();
 
                 // Checkings if all clients have everyone's clocks
+                //TODO: Maybe remove this since we add vclocks on connect? Test first!
                 let mut clocks = self.clocks.lock().unwrap();
                 for (key, val) in message.clocks.iter() {
                     let value = val.clone();
@@ -48,6 +49,7 @@ impl ws::Handler for MessageHandler {
         }
     }
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
+        //TODO: Remove disconnected client's clock from our vclock copy.
         if reason.is_empty() {
             info!("Client disconnected with code: {:?}", code); //This works: CloseCode::Abnormal
         } else {
@@ -107,4 +109,9 @@ impl ws::Factory for MessageFactory {
             me: self.me.clone(),
         }
     }
+}
+
+fn message_handler(message: PeerMessage, vclocks: Arc<Mutex<HashMap<String, u32>>>) {
+    let mut vclocks = vclocks.lock().unwrap();
+    let recv_clock_val = vclocks.get_mut(&message.sender).unwrap();
 }
