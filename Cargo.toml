@@ -5,9 +5,9 @@ authors = ["Jonathan Almeida <hello@jonalmeida.com>"]
 
 [dependencies]
 ws = "0.4.*"
-url = "*"
-clap = "*"
-env_logger = "*"
-log = "*"
-rustc-serialize = "*"
-bincode = "*"
+url = "0.5.*"
+clap = "2.1.*"
+env_logger = "0.3.*"
+log = "0.3.*"
+rustc-serialize = "0.3.*"
+bincode = "0.4.*"
