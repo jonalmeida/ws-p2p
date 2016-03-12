@@ -1,0 +1,3 @@
+ - Each client stores a list of peers in a HashMap.
+ - On connect, add to the map using the address as key.
+ - On disconnect, remove from map.

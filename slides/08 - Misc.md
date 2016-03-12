@@ -1,0 +1,2 @@
+ - Rust (at compile time) doesn't allow me to share references amongst threads or out of scope.
+  - Forces me to use Mutex locks.

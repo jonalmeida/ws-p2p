@@ -1,0 +1,6 @@
+- System programming language
+  - "C"-like language
+  - Multi-paradigm (takes a lot from other functional languages)
+- Compile-time memory safety
+- Compile-time thread safety
+- Type inference, zero cost abstraction, etc.

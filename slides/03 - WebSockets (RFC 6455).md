@@ -1,0 +1,9 @@
+- Low latency client-server and server-client connections.
+  - i.e. bi-directional socket stream.
+- IPv4 and IPv6 agnostic.
+- Uses a similar API as a "socket" connection.
+- Made for a browser without the overhead of HTTP.
+- Other fancy features:
+  - Compatible with proxy servers.
+  - SSL support for secure connections.
+  - All browsers have the protocol implemented.
