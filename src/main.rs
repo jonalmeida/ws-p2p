@@ -59,30 +59,38 @@ fn main() {
         .author("Jonathan Almeida <hello@jonalmeida.com>")
         .about("Connect to other peers and listen for incoming connections.")
         .arg(Arg::with_name("server")
-             .short("s")
-             .long("server")
-             .value_name("SERVER")
-             .help("Set the address to listen for new connections. (default: localhost:3012"))
+            .short("s")
+            .long("server")
+            .value_name("SERVER")
+            .help("Set the address to listen for new connections. (default: localhost:3012"))
         .arg(Arg::with_name("PEER")
-             .help("A WebSocket URL to attempt to connect to at start.")
-             .multiple(true))
+            .help("A WebSocket URL to attempt to connect to at start.")
+            .multiple(true))
+        .arg(Arg::with_name("demo")
+            .short("d")
+            .long("demo")
+            .value_name("DEMO_SERVER")
+            .help("Sleeps for 4 seconds before receiving messages from this peer."))
         .get_matches();
 
     // Get address of this peer
-    let my_addr = matches.value_of("server").unwrap_or("localhost:3012");
-    let sending_addr = String::from(my_addr);
+    let my_addr = String::from(matches.value_of("server").unwrap_or("localhost:3012"));
+    let demo_addr = matches.value_of("demo");
+    let my_addr_clone = my_addr.clone();
 
     let mut clock = HashMap::new();
-    clock.insert(sending_addr.clone(), 0u32);
+    clock.insert(my_addr.clone(), 0u32);
     let clocks = Arc::new(Mutex::new(clock));
     let connecting_clocks = clocks.clone();
-    let address_copy = sending_addr.clone();
+    let mut factory = MessageFactory::build(connecting_clocks.clone())
+            .me(my_addr.clone().as_str());
+
+    if let Some(demo) = demo_addr {
+        factory.demo(demo);
+    }
 
     // Create simple websocket that just prints out messages
-    let mut me  = ws::WebSocket::new(
-        MessageFactory::build(connecting_clocks.clone())
-            .me(address_copy.clone().as_str())
-        ).unwrap();
+    let mut me  = ws::WebSocket::new(factory).unwrap();
 
     // Get a sender for ALL connections to the websocket
     let broacaster = me.broadcaster();
@@ -95,12 +103,12 @@ fn main() {
             // Incrementing clock before sending
             let clock_clone = clocks.clone();
             let mut clock_lock = clock_clone.lock().unwrap();
-            *clock_lock.get_mut(&sending_addr.clone()).unwrap() += 1;
+            *clock_lock.get_mut(&my_addr_clone.clone()).unwrap() += 1;
 
             // Constructing new message
             let message =
                 PeerMessage {
-                    sender: sending_addr.clone(),
+                    sender: my_addr_clone.clone(),
                     clocks: clock_lock.clone(),
                     message: line.unwrap()
                 };
@@ -121,7 +129,7 @@ fn main() {
     }
 
     // Run the websocket
-    me.listen(my_addr).unwrap();
+    me.listen(my_addr.clone().as_str()).unwrap();
     input.join().unwrap();
 
 }

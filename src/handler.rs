@@ -23,6 +23,8 @@ pub struct MessageHandler {
     pub me: String,
     /// Buffer of messages that caused conflicts when initially received.
     pub buffer: Arc<Mutex<VecDeque<PeerMessage>>>,
+    /// Delays messages received from client
+    pub demo_client: Option<String>,
 }
 
 impl ws::Handler for MessageHandler {
@@ -32,10 +34,13 @@ impl ws::Handler for MessageHandler {
                 let encoded_msg = &*vector.into_boxed_slice();
                 let message: PeerMessage = decode(encoded_msg).unwrap();
 
-                if message.sender.as_str() == "127.0.0.1:3013" {
-                    info!(target: LIB_NAME, "Faking delay!");
-                    thread::sleep(Duration::from_millis(4000))
+                if let Some(demo_client) = self.demo_client.clone() {
+                    if message.sender.as_str() == demo_client.as_str() {
+                        info!(target: LIB_NAME, "Faking delay!");
+                        thread::sleep(Duration::from_millis(4000))
+                    }
                 }
+
                 info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
                         message.sender, message.clocks, message.message);
 				self.message_handler(message);
@@ -56,11 +61,14 @@ impl ws::Handler for MessageHandler {
             //This works: CloseCode::Abnormal
             info!(target: LIB_NAME, "Client disconnected with code: {:?}", code);
         } else {
-            info!(target: LIB_NAME, "Client disconnected with code: {:?} and reason: {}", code, reason);
+            info!(target: LIB_NAME, "{} disconnected with code: {:?} and reason: {}", self.me, code, reason);
         }
     }
     fn on_error(&mut self, err: ws::Error) {
         warn!(target: LIB_NAME, "Error family robinson! {:?}", err.kind);
+    }
+    fn on_shutdown(&mut self) {
+        warn!(target: LIB_NAME, "Socket shutdown from {}", self.me);
     }
 }
 
@@ -106,10 +114,9 @@ impl MessageHandler {
                     continue;
                 } else { // There's a clock that is greater than what we have
                     // Push to local buffer
-                    let mut buffer = self.buffer.lock().unwrap();
-                    // return
+                    //let mut buffer = self.buffer.lock().unwrap();
+                    //buffer.push_back(message.clone());
                     debug!(target: LIB_NAME, "clock discrepency");
-                    //self.buffer_check();
                     ()
                 }
             }
@@ -124,18 +131,21 @@ impl MessageHandler {
     }
 }
 
+#[derive(Clone)]
 pub struct MessageFactory {
     vclocks: Arc<Mutex<HashMap<String, u32>>>,
     me: String,
     buffer: Arc<Mutex<VecDeque<PeerMessage>>>,
+    demo_client: Option<String>,
 }
 
 impl MessageFactory {
     pub fn build(vclocks: Arc<Mutex<HashMap<String, u32>>>) -> MessageFactory {
         MessageFactory {
-            vclocks: vclocks,
+            vclocks: vclocks.clone(),
             me: String::from("undefined"),
             buffer: Arc::new(Mutex::new(VecDeque::new())),
+            demo_client: None,
         }
     }
     pub fn me(&self, me: &str) -> MessageFactory {
@@ -143,7 +153,14 @@ impl MessageFactory {
             vclocks: self.vclocks.clone(),
             me: String::from(me),
             buffer: self.buffer.clone(),
+            demo_client: match self.demo_client.clone() {
+                Some(peer) => Some(peer),
+                None => None,
+            },
         }
+    }
+    pub fn demo(&mut self, peer: &str) {
+        self.demo_client = Some(String::from(peer));
     }
 }
 
@@ -156,6 +173,7 @@ impl ws::Factory for MessageFactory {
             clocks: self.vclocks.clone(),
             me: self.me.clone(),
             buffer: self.buffer.clone(),
+            demo_client: self.demo_client.clone(),
         }
     }
 
@@ -166,6 +184,7 @@ impl ws::Factory for MessageFactory {
             clocks: self.vclocks.clone(),
             me: self.me.clone(),
             buffer: self.buffer.clone(),
+            demo_client: self.demo_client.clone(),
         }
     }
 
@@ -176,6 +195,7 @@ impl ws::Factory for MessageFactory {
             clocks: self.vclocks.clone(),
             me: self.me.clone(),
             buffer: self.buffer.clone(),
+            demo_client: self.demo_client.clone(),
         }
     }
 }
