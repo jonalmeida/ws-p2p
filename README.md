@@ -39,3 +39,7 @@ RUST_LOG=ws-p2p=info ./target/debug/ws-p2p \
                 ws://127.0.0.1:3014
 ```
 
+## Disclaimer
+
+1. Dynamically adding peers hasn't been tested well, so expect it to fail instantly.
+2. Leaving for peers hasn't been implemented. Theoretically, it should be straight-forward with this implementation. Currently, I'm not receiving a closed or errored websocket connection message as expected to begin adding this feature, so I've left it as is for now.
