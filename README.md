@@ -2,7 +2,7 @@
 An example of a peer-to-peer network imlementing causal ordering using WebSockets
 
 
-# Build
+## Build
 
 1. Install [Rust](https://rust-lang.org) for your system.
 2. Use Cargo to build the source:
@@ -12,7 +12,7 @@ cd ws-p2p/
 cargo build
 ```
 
-# Usage Example
+## Usage Example
 
 Peer 1:
 
