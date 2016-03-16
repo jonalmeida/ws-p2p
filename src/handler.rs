@@ -34,15 +34,15 @@ impl ws::Handler for MessageHandler {
                 let encoded_msg = &*vector.into_boxed_slice();
                 let message: PeerMessage = decode(encoded_msg).unwrap();
 
+                debug!(target: LIB_NAME, "I am {:?}.", self.ws.token());
+
                 if let Some(demo_client) = self.demo_client.clone() {
                     if message.sender.as_str() == demo_client.as_str() {
-                        info!(target: LIB_NAME, "Faking delay!");
+                        info!(target: LIB_NAME, "Faking delay for messages from {}!", demo_client);
                         thread::sleep(Duration::from_millis(4000))
                     }
                 }
 
-                info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
-                        message.sender, message.clocks, message.message);
 				self.message_handler(message);
                 self.buffer_check();
                 Ok(())
@@ -83,7 +83,7 @@ impl MessageHandler {
             for (key, val) in message.clocks.iter() {
                 if let Some(lval) = vclocks.get(&key.clone()) {
                     debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
-                    if lval <= val {
+                    if val <= lval {
                         debug!(target: LIB_NAME, "val <= lval");
                         continue;
                     } else { // There's a clock that is greater than what we have
@@ -98,31 +98,45 @@ impl MessageHandler {
                 let lval = vclocks.get(&key.clone()).unwrap().clone();
                 let max_val = cmp::max(val, &lval);
                 vclocks.insert(key.clone(), *max_val);
-                info!(target: LIB_NAME, "Peer {} with clocks: {:?} got message: {}",
-                        message.sender, message.clocks, message.message);
             }
+            info!(target: LIB_NAME, "buf_check: Peer {} with clocks: {:?} got message: {}",
+                    message.sender, message.clocks, message.message);
             buffer.pop_front();
         }
     }
     fn message_handler(&self, message: PeerMessage) {
         let mut vclocks = self.clocks.lock().unwrap();
         for (key, val) in message.clocks.iter() {
-            if let Some(lval) = vclocks.get(&key.clone()) {
-                debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
-                if lval <= val {
-                    debug!(target: LIB_NAME, "val <= lval");
-                    continue;
-                } else { // There's a clock that is greater than what we have
-                    // Push to local buffer
-                    //let mut buffer = self.buffer.lock().unwrap();
-                    //buffer.push_back(message.clone());
-                    debug!(target: LIB_NAME, "clock discrepency");
-                    ()
+            if key.as_str() == message.sender.as_str() {
+                if let Some(lval) = vclocks.get(&key.clone()) {
+                    if *val != *lval + 1 {
+                        let mut buffer = self.buffer.lock().unwrap();
+                        buffer.push_back(message.clone());
+                        debug!(target: LIB_NAME, "clock discrepency with from incoming peer");
+                        ()
+                    }
+                }
+            } else {
+                if let Some(lval) = vclocks.get(&key.clone()) {
+                    debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
+                    if val <= lval {
+                        debug!(target: LIB_NAME, "val <= lval");
+                        continue;
+                    } else { // There's a clock that is greater than what we have
+                        // Push to local buffer
+                        let mut buffer = self.buffer.lock().unwrap();
+                        buffer.push_back(message.clone());
+                        debug!(target: LIB_NAME, "clock discrepency from other peer clocks");
+                        ()
+                    }
                 }
             }
         }
 
         // Update clocks
+        debug!(target: LIB_NAME, "Updating clocks now because no discrepency");
+        info!(target: LIB_NAME, "msg_handler: Peer {} with clocks: {:?} got message: {}",
+                message.sender, message.clocks, message.message);
         for (key, val) in message.clocks.iter() {
             let lval = vclocks.get(&key.clone()).unwrap().clone();
             let max_val = cmp::max(val, &lval);

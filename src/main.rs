@@ -90,7 +90,7 @@ fn main() {
     }
 
     // Create simple websocket that just prints out messages
-    let mut me  = ws::WebSocket::new(factory).unwrap();
+    let mut me = ws::WebSocket::new(factory).unwrap();
 
     // Get a sender for ALL connections to the websocket
     let broacaster = me.broadcaster();
