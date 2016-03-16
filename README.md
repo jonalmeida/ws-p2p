@@ -17,21 +17,25 @@ cargo build
 Peer 1:
 
 ```bash
-./target/debug/ws-p2p --server 127.0.0.1:3012 \ # Address to run this peer with.
-                --demo 127.0.0.1:3014         \ # Address of the peer you want to be delayed (for demo-purposes).
+RUST_LOG=ws-p2p=info ./target/debug/ws-p2p \
+                --server 127.0.0.1:3012    \ # Address to run this peer with.
+                --demo 127.0.0.1:3014        # Address of the peer you want to be delayed (for demo-purposes).
 ```
 
 Peer 2:
 
 ```bash
-./target/debug/ws-p2p --server 127.0.0.1:3013 \
-               ws://127.0.0.1:3012             # A list of peer's to connect with.
+RUST_LOG=ws-p2p=info ./target/debug/ws-p2p \
+                --server 127.0.0.1:3013    \
+                ws://127.0.0.1:3012          # A list of peer's to connect with.
 ```
 
 Peer 3:
 
 ```bash
-./target/debug/ws-p2p --server 127.0.0.1:3014 \
-              ws://127.0.0.1:3012             \ # A list of peer's to connect with.
-              ws://127.0.0.1:3014
+RUST_LOG=ws-p2p=info ./target/debug/ws-p2p \
+                --server 127.0.0.1:3014    \
+                ws://127.0.0.1:3012        \ # A list of peer's to connect with.
+                ws://127.0.0.1:3014
 ```
+
