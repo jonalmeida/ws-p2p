@@ -11,7 +11,11 @@ use std::thread;
 
 use bincode::rustc_serialize::decode;
 
+use ws::util::Token;
+
 static LIB_NAME: &'static str = "ws-p2p";
+
+const DELAYED_MESSAGE: Token = Token(1);
 
 /// Connection handler for incoming messages.
 pub struct MessageHandler {
@@ -23,8 +27,10 @@ pub struct MessageHandler {
     pub me: String,
     /// Buffer of messages that caused conflicts when initially received.
     pub buffer: Arc<Mutex<VecDeque<PeerMessage>>>,
-    /// Delays messages received from client
+    /// Delays messages received from client.
     pub demo_client: Option<String>,
+    /// Holder for delayed messages.
+    message_queue: VecDeque<PeerMessage>,
 }
 
 impl ws::Handler for MessageHandler {
@@ -39,7 +45,8 @@ impl ws::Handler for MessageHandler {
                 if let Some(demo_client) = self.demo_client.clone() {
                     if message.sender.as_str() == demo_client.as_str() {
                         info!(target: LIB_NAME, "Faking delay for messages from {}!", demo_client);
-                        thread::sleep(Duration::from_millis(4000))
+                        self.message_queue.push_back(message);
+                        return self.ws.timeout(4000, DELAYED_MESSAGE);
                     }
                 }
 
@@ -53,6 +60,17 @@ impl ws::Handler for MessageHandler {
                 clocks.insert(string, 0u32);
                 Ok(())
             }
+        }
+    }
+    fn on_timeout(&mut self, event: Token) -> ws::Result<()> {
+        match event {
+            DELAYED_MESSAGE => {
+                let msg = self.message_queue.pop_front().unwrap();
+                self.message_handler(msg);
+                self.buffer_check();
+                Ok(())
+            },
+            _ => Err(ws::Error::new(ws::ErrorKind::Internal, "Invalid timeout token encountered!")),
         }
     }
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
@@ -188,6 +206,7 @@ impl ws::Factory for MessageFactory {
             me: self.me.clone(),
             buffer: self.buffer.clone(),
             demo_client: self.demo_client.clone(),
+            message_queue: VecDeque::new(),
         }
     }
 
@@ -199,6 +218,7 @@ impl ws::Factory for MessageFactory {
             me: self.me.clone(),
             buffer: self.buffer.clone(),
             demo_client: self.demo_client.clone(),
+            message_queue: VecDeque::new(),
         }
     }
 
@@ -210,6 +230,7 @@ impl ws::Factory for MessageFactory {
             me: self.me.clone(),
             buffer: self.buffer.clone(),
             demo_client: self.demo_client.clone(),
+            message_queue: VecDeque::new(),
         }
     }
 }
