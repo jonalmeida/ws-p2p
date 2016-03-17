@@ -30,7 +30,8 @@ extern crate clap;
 extern crate env_logger;
 extern crate rustc_serialize;
 extern crate bincode;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 pub mod handler;
 pub mod message;
@@ -55,23 +56,25 @@ fn main() {
 
     // Parse command line arguments
     let matches = App::new("Simple Peer 2 Peer")
-        .version("1.0")
-        .author("Jonathan Almeida <hello@jonalmeida.com>")
-        .about("Connect to other peers and listen for incoming connections.")
-        .arg(Arg::with_name("server")
-            .short("s")
-            .long("server")
-            .value_name("SERVER")
-            .help("Set the address to listen for new connections. (default: localhost:3012"))
-        .arg(Arg::with_name("PEER")
-            .help("A WebSocket URL to attempt to connect to at start.")
-            .multiple(true))
-        .arg(Arg::with_name("demo")
-            .short("d")
-            .long("demo")
-            .value_name("DEMO_SERVER")
-            .help("Sleeps for 4 seconds before receiving messages from this peer."))
-        .get_matches();
+                      .version("1.0")
+                      .author("Jonathan Almeida <hello@jonalmeida.com>")
+                      .about("Connect to other peers and listen for incoming connections.")
+                      .arg(Arg::with_name("server")
+                               .short("s")
+                               .long("server")
+                               .value_name("SERVER")
+                               .help("Set the address to listen for new connections. (default: \
+                                      localhost:3012"))
+                      .arg(Arg::with_name("PEER")
+                               .help("A WebSocket URL to attempt to connect to at start.")
+                               .multiple(true))
+                      .arg(Arg::with_name("demo")
+                               .short("d")
+                               .long("demo")
+                               .value_name("DEMO_SERVER")
+                               .help("Sleeps for 4 seconds before receiving messages from this \
+                                      peer."))
+                      .get_matches();
 
     // Get address of this peer
     let my_addr = String::from(matches.value_of("server").unwrap_or("localhost:3012"));
@@ -82,8 +85,7 @@ fn main() {
     clock.insert(my_addr.clone(), 0u32);
     let clocks = Arc::new(Mutex::new(clock));
     let connecting_clocks = clocks.clone();
-    let mut factory = MessageFactory::build(connecting_clocks.clone())
-            .me(my_addr.clone().as_str());
+    let mut factory = MessageFactory::build(connecting_clocks.clone()).me(my_addr.clone().as_str());
 
     if let Some(demo) = demo_addr {
         factory.demo(demo);
@@ -106,12 +108,11 @@ fn main() {
             *clock_lock.get_mut(&my_addr_clone.clone()).unwrap() += 1;
 
             // Constructing new message
-            let message =
-                PeerMessage {
-                    sender: my_addr_clone.clone(),
-                    clocks: clock_lock.clone(),
-                    message: line.unwrap()
-                };
+            let message = PeerMessage {
+                sender: my_addr_clone.clone(),
+                clocks: clock_lock.clone(),
+                message: line.unwrap(),
+            };
 
             // Encoding into bytes
             let encoded: Vec<u8> = encode(&message, bincode::SizeLimit::Infinite).unwrap();
@@ -133,4 +134,3 @@ fn main() {
     input.join().unwrap();
 
 }
-

@@ -50,12 +50,12 @@ impl ws::Handler for MessageHandler {
                     }
                 }
 
-				self.message_handler(message);
+                self.message_handler(message);
                 self.buffer_check();
                 Ok(())
-            },
+            }
             ws::Message::Text(string) => {
-                info!(target: LIB_NAME, "Received peer's name. Adding {} to the client list", string);
+                info!(target: LIB_NAME, "Received peer's name. Adding {} to client list", string);
                 let mut clocks = self.clocks.lock().unwrap();
                 clocks.insert(string, 0u32);
                 Ok(())
@@ -69,17 +69,18 @@ impl ws::Handler for MessageHandler {
                 self.message_handler(msg);
                 self.buffer_check();
                 Ok(())
-            },
-            _ => Err(ws::Error::new(ws::ErrorKind::Internal, "Invalid timeout token encountered!")),
+            }
+            _ => Err(ws::Error::new(ws::ErrorKind::Internal,
+                                    "Invalid timeout token encountered!")),
         }
     }
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
-        //TODO: Remove disconnected client's clock from our vclock copy.
+        // TODO: Remove disconnected client's clock from our vclock copy.
         if reason.is_empty() {
-            //This works: CloseCode::Abnormal
+            // This works: CloseCode::Abnormal
             info!(target: LIB_NAME, "Client disconnected with code: {:?}", code);
         } else {
-            info!(target: LIB_NAME, "{} disconnected with code: {:?} and reason: {}", self.me, code, reason);
+            info!(target: LIB_NAME, "{} d/c with code: {:?} and reason: {}", self.me, code, reason);
         }
     }
     fn on_error(&mut self, err: ws::Error) {
@@ -100,11 +101,12 @@ impl MessageHandler {
             let mut vclocks = self.clocks.lock().unwrap();
             for (key, val) in message.clocks.iter() {
                 if let Some(lval) = vclocks.get(&key.clone()) {
-                    debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
+                    debug!(target: LIB_NAME, "key: {} val: {} and lval: {}", key, val, lval);
                     if val <= lval {
                         debug!(target: LIB_NAME, "val <= lval");
                         continue;
-                    } else { // There's a clock that is greater than what we have
+                    } else {
+                        // There's a clock that is greater than what we have
                         debug!(target: LIB_NAME, "discrepency still exists");
                         ()
                     }
@@ -136,11 +138,12 @@ impl MessageHandler {
                 }
             } else {
                 if let Some(lval) = vclocks.get(&key.clone()) {
-                    debug!(target: LIB_NAME, "key: {} incoming val: {} and lval: {}", key, val, lval);
+                    debug!(target: LIB_NAME, "key: {} val: {} and lval: {}", key, val, lval);
                     if val <= lval {
                         debug!(target: LIB_NAME, "val <= lval");
                         continue;
-                    } else { // There's a clock that is greater than what we have
+                    } else {
+                        // There's a clock that is greater than what we have
                         // Push to local buffer
                         let mut buffer = self.buffer.lock().unwrap();
                         buffer.push_back(message.clone());
@@ -234,4 +237,3 @@ impl ws::Factory for MessageFactory {
         }
     }
 }
-
