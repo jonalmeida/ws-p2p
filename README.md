@@ -1,5 +1,8 @@
 # ws-p2p
-An example of a peer-to-peer network implementing causal ordering using WebSockets
+An example of a peer-to-peer network implementing causal ordering using WebSockets.
+
+[![Build Status](https://travis-ci.org/jonalmeida/ws-p2p.svg?branch=master)](https://travis-ci.org/jonalmeida/ws-p2p)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 
 ## Build
