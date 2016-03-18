@@ -81,10 +81,10 @@ fn main() {
     let demo_addr = matches.value_of("demo");
     let my_addr_clone = my_addr.clone();
 
-    let mut clock = HashMap::new();
-    clock.insert(my_addr.clone(), 0u32);
-    let clocks = Arc::new(Mutex::new(clock));
-    let connecting_clocks = clocks.clone();
+    let mut init_clock = HashMap::new();
+    init_clock.insert(my_addr.clone(), 0u32);
+    let clock = Arc::new(Mutex::new(init_clock));
+    let connecting_clocks = clock.clone();
     let mut factory = MessageFactory::build(connecting_clocks.clone()).me(my_addr.clone().as_str());
 
     if let Some(demo) = demo_addr {
@@ -103,29 +103,32 @@ fn main() {
         for line in stdin.lock().lines() {
 
             // Incrementing clock before sending
-            let clock_clone = clocks.clone();
-            let mut clock_lock = clock_clone.lock().unwrap();
-            *clock_lock.get_mut(&my_addr_clone.clone()).unwrap() += 1;
+            let mut clock = clock.lock().unwrap();
+            if let Some(clock) = clock.get_mut(&my_addr_clone) {
+                *clock += 1;
+            }
 
             // Constructing new message
             let message = PeerMessage {
                 sender: my_addr_clone.clone(),
-                clocks: clock_lock.clone(),
-                message: line.unwrap(),
+                clocks: clock.clone(),
+                message: line.unwrap_or(String::from("n/a")),
             };
 
             // Encoding into bytes
-            let encoded: Vec<u8> = encode(&message, bincode::SizeLimit::Infinite).unwrap();
-
-            // Sending bytes to all connected clients
-            broacaster.send(&*encoded.into_boxed_slice()).unwrap();
+            if let Ok(encoded_msg) = encode(&message, bincode::SizeLimit::Infinite) {
+                // Sending bytes to all connected clients
+                broacaster.send(&*encoded_msg.into_boxed_slice()).unwrap();
+            }
         }
     });
 
     // Connect to any existing peers specified on the cli
     if let Some(peers) = matches.values_of("PEER") {
         for peer in peers {
-            me.connect(url::Url::parse(peer).unwrap()).unwrap();
+            if let Ok(peer) = url::Url::parse(peer) {
+                me.connect(peer).unwrap();
+            }
         }
     }
 
