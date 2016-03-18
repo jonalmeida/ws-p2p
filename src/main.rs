@@ -81,12 +81,12 @@ fn main() {
     let demo_addr = matches.value_of("demo");
     let my_addr_clone = my_addr.clone();
 
-    let mut init_clock = HashMap::new();
-    init_clock.insert(my_addr.clone(), 0u32);
-    let clock = Arc::new(Mutex::new(init_clock));
-    let connecting_clocks = clock.clone();
-    let mut factory = MessageFactory::build(connecting_clocks.clone()).me(my_addr.clone().as_str());
+    let mut clock = HashMap::new();
+    clock.insert(my_addr.clone(), 0u32);
+    let clock = Arc::new(Mutex::new(clock));
 
+    // Creating a Factory for the WebSocket
+    let mut factory = MessageFactory::build(clock.clone()).me(my_addr.clone().as_str());
     if let Some(demo) = demo_addr {
         factory.demo(demo);
     }
