@@ -103,22 +103,23 @@ fn main() {
         for line in stdin.lock().lines() {
 
             // Incrementing clock before sending
-            let mut clock = clock.lock().unwrap();
-            if let Some(clock) = clock.get_mut(&my_addr_clone) {
-                *clock += 1;
-            }
+            if let Ok(mut clock) = clock.lock() {
+                if let Some(clock) = clock.get_mut(&my_addr_clone) {
+                    *clock += 1;
+                }
 
-            // Constructing new message
-            let message = PeerMessage {
-                sender: my_addr_clone.clone(),
-                clocks: clock.clone(),
-                message: line.unwrap_or(String::from("n/a")),
-            };
+                // Constructing new message
+                let message = PeerMessage {
+                    sender: my_addr_clone.clone(),
+                    clocks: clock.clone(),
+                    message: line.unwrap_or(String::from("n/a")),
+                };
 
-            // Encoding into bytes
-            if let Ok(encoded_msg) = encode(&message, bincode::SizeLimit::Infinite) {
-                // Sending bytes to all connected clients
-                broacaster.send(&*encoded_msg.into_boxed_slice()).unwrap();
+                // Encoding into bytes
+                if let Ok(encoded_msg) = encode(&message, bincode::SizeLimit::Infinite) {
+                    // Sending bytes to all connected clients
+                    broacaster.send(&*encoded_msg.into_boxed_slice()).unwrap();
+                }
             }
         }
     });
@@ -133,7 +134,12 @@ fn main() {
     }
 
     // Run the websocket
-    me.listen(my_addr.clone().as_str()).unwrap();
-    input.join().unwrap();
+    if let Err(e) = me.listen(my_addr.clone().as_str()) {
+        panic!("Failed to start WebSocket.\n{}", e);
+    }
+
+    if let Err(e) = input.join() {
+        panic!("Child thread paniced with non-normal reasons.Trace:\n{:?}", e);
+    }
 
 }

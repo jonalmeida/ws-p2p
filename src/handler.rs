@@ -37,7 +37,6 @@ impl ws::Handler for MessageHandler {
             ws::Message::Binary(vector) => {
                 let encoded_msg = &*vector.into_boxed_slice();
                 if let Ok(message) = decode(encoded_msg) {
-                    //let message: PeerMessage = decode(encoded_msg).unwrap();
                     let message: PeerMessage = message;
 
                     debug!(target: LIB_NAME, "I am using {:?}.", self.ws.token());
@@ -59,18 +58,26 @@ impl ws::Handler for MessageHandler {
             }
             ws::Message::Text(string) => {
                 info!(target: LIB_NAME, "Received peer's name. Adding {} to client list", string);
-                let mut clocks = self.clocks.lock().unwrap();
-                clocks.insert(string, 0u32);
-                Ok(())
+                if let Ok(mut clocks) = self.clocks.lock() {
+                    clocks.insert(string, 0u32);
+                    Ok(())
+                } else {
+                    Err(ws::Error::new(ws::ErrorKind::Internal,
+                                    "Failed to serialize the string message."))
+                }
             }
         }
     }
     fn on_timeout(&mut self, event: Token) -> ws::Result<()> {
         match event {
             DELAYED_MESSAGE => {
-                let msg = self.message_queue.pop_front().unwrap();
-                self.message_handler(msg);
-                Ok(())
+                if let Some(msg) = self.message_queue.pop_front() {
+                    self.message_handler(msg);
+                    Ok(())
+                } else {
+                    Err(ws::Error::new(ws::ErrorKind::Internal,
+                                       "Invalid timeout token encountered!"))
+                }
             }
             _ => Err(ws::Error::new(ws::ErrorKind::Internal,
                                     "Invalid timeout token encountered!")),
@@ -124,9 +131,11 @@ impl MessageHandler {
 
             // Update clocks
             for (key, val) in message.clocks.iter() {
-                let lval = vclocks.get(&key.clone()).unwrap().clone();
-                let max_val = cmp::max(val, &lval);
-                vclocks.insert(key.clone(), *max_val);
+                if vclocks.get(&key.clone()).is_some() {
+                    let lval = vclocks.get(&key.clone()).unwrap().clone();
+                    let max_val = cmp::max(val, &lval);
+                    vclocks.insert(key.clone(), *max_val);
+                }
             }
             info!(target: LIB_NAME, "buf_check: Peer {} with clocks: {:?} got message: {}",
                     message.sender, message.clocks, message.message);
@@ -140,8 +149,10 @@ impl MessageHandler {
                 if key.as_str() == message.sender.as_str() {
                     if let Some(lval) = vclocks.get(&key.clone()) {
                         if *val != *lval + 1 {
-                            let mut buffer = self.buffer.lock().unwrap();
-                            buffer.push_back(message.clone());
+                            if let Ok(mut buffer) = self.buffer.lock() {
+                                debug!(target: LIB_NAME, "pushing to buffer..");
+                                buffer.push_back(message.clone());
+                            }
                             debug!(target: LIB_NAME, "clock discrepency with from incoming peer");
                             return;
                         }
@@ -154,9 +165,10 @@ impl MessageHandler {
                             continue;
                         } else {
                             // There's a clock that is greater than what we have
-                            // Push to local buffer
-                            let mut buffer = self.buffer.lock().unwrap();
-                            buffer.push_back(message.clone());
+                            if let Ok(mut buffer) = self.buffer.lock() {
+                                debug!(target: LIB_NAME, "pushing to buffer..");
+                                buffer.push_back(message.clone());
+                            }
                             debug!(target: LIB_NAME, "clock discrepency from other peer clocks");
                             return;
                         }
