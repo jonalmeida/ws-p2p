@@ -36,20 +36,26 @@ impl ws::Handler for MessageHandler {
         match msg {
             ws::Message::Binary(vector) => {
                 let encoded_msg = &*vector.into_boxed_slice();
-                let message: PeerMessage = decode(encoded_msg).unwrap();
+                if let Ok(message) = decode(encoded_msg) {
+                    //let message: PeerMessage = decode(encoded_msg).unwrap();
+                    let message: PeerMessage = message;
 
-                debug!(target: LIB_NAME, "I am using {:?}.", self.ws.token());
+                    debug!(target: LIB_NAME, "I am using {:?}.", self.ws.token());
 
-                if let Some(demo_client) = self.demo_client.clone() {
-                    if message.sender.as_str() == demo_client.as_str() {
-                        info!(target: LIB_NAME, "Faking delay for messages from {}!", demo_client);
-                        self.message_queue.push_back(message);
-                        return self.ws.timeout(4000, DELAYED_MESSAGE);
+                    if let Some(demo_client) = self.demo_client.clone() {
+                        if message.sender.as_str() == demo_client.as_str() {
+                            info!(target: LIB_NAME, "Faking delay for messages from {}!", demo_client);
+                            self.message_queue.push_back(message);
+                            return self.ws.timeout(4000, DELAYED_MESSAGE);
+                        }
                     }
-                }
 
-                self.message_handler(message);
-                Ok(())
+                    self.message_handler(message);
+                    Ok(())
+                } else {
+                    Err(ws::Error::new(ws::ErrorKind::Internal,
+                                    "Failed to serialize the binary message."))
+                }
             }
             ws::Message::Text(string) => {
                 info!(target: LIB_NAME, "Received peer's name. Adding {} to client list", string);
