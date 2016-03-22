@@ -85,6 +85,7 @@ impl ws::Handler for MessageHandler {
     }
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
         // TODO: Remove disconnected client's clock from our vclock copy.
+        info!(target: LIB_NAME, "Received an on_close call");
         if reason.is_empty() {
             // This works: CloseCode::Abnormal
             info!(target: LIB_NAME, "Client disconnected with code: {:?}", code);

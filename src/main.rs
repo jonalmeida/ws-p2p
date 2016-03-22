@@ -141,5 +141,4 @@ fn main() {
     if let Err(e) = input.join() {
         panic!("Child thread paniced with non-normal reasons.Trace:\n{:?}", e);
     }
-
 }
