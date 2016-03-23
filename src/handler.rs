@@ -144,6 +144,7 @@ impl MessageHandler {
         }
     }
     fn message_handler(&self, message: PeerMessage) {
+        // Finishes the lifetime of the mutex holds so buffer_check can use it without blocking
         {
             let mut vclocks = self.clocks.lock().unwrap();
             for (key, val) in message.clocks.iter() {
