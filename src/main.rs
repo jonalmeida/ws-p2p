@@ -98,7 +98,7 @@ fn main() {
     let broacaster = me.broadcaster();
 
     // Setup thread for listening to stdin and sending messages to connections
-    let input = thread::spawn(move || {
+    thread::spawn(move || {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
 
@@ -136,9 +136,5 @@ fn main() {
     // Run the websocket
     if let Err(e) = me.listen(my_addr.clone().as_str()) {
         panic!("Failed to start WebSocket.\n{}", e);
-    }
-
-    if let Err(e) = input.join() {
-        panic!("Child thread paniced with non-normal reasons.Trace:\n{:?}", e);
     }
 }
