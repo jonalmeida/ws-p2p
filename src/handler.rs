@@ -43,7 +43,8 @@ impl ws::Handler for MessageHandler {
 
                     if let Some(demo_client) = self.demo_client.clone() {
                         if message.sender.as_str() == demo_client.as_str() {
-                            info!(target: LIB_NAME, "Faking delay for messages from {}!", demo_client);
+                            info!(target: LIB_NAME,
+                                  "Faking delay for messages from {}!", demo_client);
                             self.message_queue.push_back(message);
                             return self.ws.timeout(4000, DELAYED_MESSAGE);
                         }
@@ -53,7 +54,7 @@ impl ws::Handler for MessageHandler {
                     Ok(())
                 } else {
                     Err(ws::Error::new(ws::ErrorKind::Internal,
-                                    "Failed to serialize the binary message."))
+                                       "Failed to serialize the binary message."))
                 }
             }
             ws::Message::Text(string) => {
@@ -63,7 +64,7 @@ impl ws::Handler for MessageHandler {
                     Ok(())
                 } else {
                     Err(ws::Error::new(ws::ErrorKind::Internal,
-                                    "Failed to serialize the string message."))
+                                       "Failed to serialize the string message."))
                 }
             }
         }
@@ -144,7 +145,8 @@ impl MessageHandler {
         }
     }
     fn message_handler(&self, message: PeerMessage) {
-        // Finishes the lifetime of the mutex holds so buffer_check can use it without blocking
+        // Finishes the lifetime of the mutex holds so buffer_check can use it without
+        // blocking
         {
             let mut vclocks = self.clocks.lock().unwrap();
             for (key, val) in message.clocks.iter() {
@@ -239,7 +241,8 @@ impl ws::Factory for MessageFactory {
 
     fn server_connected(&mut self, ws: ws::Sender) -> Self::Handler {
         if let Err(e) = ws.send(self.me.clone()) {
-            panic!("Unable to send name to connected peer. Something is wrong..\n{}", e);
+            panic!("Unable to send name to connected peer. Something is wrong..\n{}",
+                   e);
         }
         MessageHandler {
             ws: ws,
@@ -253,7 +256,8 @@ impl ws::Factory for MessageFactory {
 
     fn client_connected(&mut self, ws: ws::Sender) -> Self::Handler {
         if let Err(e) = ws.send(self.me.clone()) {
-            panic!("Unable to send name to connected peer. Something is wrong..\n{}", e);
+            panic!("Unable to send name to connected peer. Something is wrong..\n{}",
+                   e);
         }
         MessageHandler {
             ws: ws,
