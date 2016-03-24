@@ -86,6 +86,9 @@ impl ws::Handler for MessageHandler {
     }
     fn on_close(&mut self, code: ws::CloseCode, reason: &str) {
         // TODO: Remove disconnected client's clock from our vclock copy.
+        // We don't get to here because our stdin thread doesn't pass
+        // the SIGINT to the main thread when closing. This should work
+        // as a library without a CLI.
         info!(target: LIB_NAME, "Received an on_close call");
         if reason.is_empty() {
             // This works: CloseCode::Abnormal
