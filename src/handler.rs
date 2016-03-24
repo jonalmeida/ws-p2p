@@ -238,7 +238,9 @@ impl ws::Factory for MessageFactory {
     }
 
     fn server_connected(&mut self, ws: ws::Sender) -> Self::Handler {
-        ws.send(self.me.clone()).unwrap();
+        if let Err(e) = ws.send(self.me.clone()) {
+            panic!("Unable to send name to connected peer. Something is wrong..\n{}", e);
+        }
         MessageHandler {
             ws: ws,
             clocks: self.vclocks.clone(),
@@ -250,7 +252,9 @@ impl ws::Factory for MessageFactory {
     }
 
     fn client_connected(&mut self, ws: ws::Sender) -> Self::Handler {
-        ws.send(self.me.clone()).unwrap();
+        if let Err(e) = ws.send(self.me.clone()) {
+            panic!("Unable to send name to connected peer. Something is wrong..\n{}", e);
+        }
         MessageHandler {
             ws: ws,
             clocks: self.vclocks.clone(),
