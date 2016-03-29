@@ -73,7 +73,7 @@ impl ws::Handler for MessageHandler {
         match event {
             DELAYED_MESSAGE => {
                 if let Some(msg) = self.message_queue.pop_front() {
-                    self.message_handler(msg);
+                    // We ignore messages from a peer we don't care about.
                     Ok(())
                 } else {
                     Err(ws::Error::new(ws::ErrorKind::Internal,
