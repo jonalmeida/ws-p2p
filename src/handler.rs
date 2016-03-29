@@ -14,6 +14,7 @@ use ws::util::Token;
 static LIB_NAME: &'static str = "ws-p2p";
 
 const DELAYED_MESSAGE: Token = Token(1);
+const DROPPED_MESSAGE: Token = Token(2);
 
 /// Connection handler for incoming messages.
 pub struct MessageHandler {
@@ -29,6 +30,7 @@ pub struct MessageHandler {
     pub demo_client: Option<String>,
     /// Holder for delayed messages.
     message_queue: VecDeque<PeerMessage>,
+    pub drop: bool,
 }
 
 impl ws::Handler for MessageHandler {
@@ -46,7 +48,11 @@ impl ws::Handler for MessageHandler {
                             info!(target: LIB_NAME,
                                   "Faking delay for messages from {}!", demo_client);
                             self.message_queue.push_back(message);
-                            return self.ws.timeout(4000, DELAYED_MESSAGE);
+                            if self.drop {
+                                return self.ws.timeout(0, DROPPED_MESSAGE);
+                            } else {
+                                return self.ws.timeout(4000, DELAYED_MESSAGE);
+                            }
                         }
                     }
 
@@ -73,6 +79,15 @@ impl ws::Handler for MessageHandler {
         match event {
             DELAYED_MESSAGE => {
                 if let Some(msg) = self.message_queue.pop_front() {
+                    self.message_handler(msg);
+                    Ok(())
+                } else {
+                    Err(ws::Error::new(ws::ErrorKind::Internal,
+                                       "Invalid timeout token encountered!"))
+                }
+            }
+            DROPPED_MESSAGE => {
+                if let Some(_) = self.message_queue.pop_front() {
                     // We ignore messages from a peer we don't care about.
                     Ok(())
                 } else {
@@ -201,6 +216,7 @@ pub struct MessageFactory {
     me: String,
     buffer: Arc<Mutex<VecDeque<PeerMessage>>>,
     demo_client: Option<String>,
+    drop: bool,
 }
 
 impl MessageFactory {
@@ -210,6 +226,7 @@ impl MessageFactory {
             me: String::from("undefined"),
             buffer: Arc::new(Mutex::new(VecDeque::new())),
             demo_client: None,
+            drop: false,
         }
     }
     pub fn me(&self, me: &str) -> MessageFactory {
@@ -221,10 +238,14 @@ impl MessageFactory {
                 Some(peer) => Some(peer),
                 None => None,
             },
+            drop: false,
         }
     }
     pub fn demo(&mut self, peer: &str) {
         self.demo_client = Some(String::from(peer));
+    }
+    pub fn drop(&mut self, drop: bool) {
+        self.drop = drop;
     }
 }
 
@@ -239,6 +260,7 @@ impl ws::Factory for MessageFactory {
             buffer: self.buffer.clone(),
             demo_client: self.demo_client.clone(),
             message_queue: VecDeque::new(),
+            drop: self.drop,
         }
     }
 
@@ -254,6 +276,7 @@ impl ws::Factory for MessageFactory {
             buffer: self.buffer.clone(),
             demo_client: self.demo_client.clone(),
             message_queue: VecDeque::new(),
+            drop: self.drop,
         }
     }
 
@@ -269,6 +292,7 @@ impl ws::Factory for MessageFactory {
             buffer: self.buffer.clone(),
             demo_client: self.demo_client.clone(),
             message_queue: VecDeque::new(),
+            drop: self.drop,
         }
     }
 }

@@ -74,6 +74,11 @@ fn main() {
                                .value_name("DEMO_SERVER")
                                .help("Sleeps for 4 seconds before receiving messages from this \
                                       peer."))
+                      .arg(Arg::with_name("drop")
+                               .short("r")
+                               .long("drop")
+                               .multiple(true)
+                               .help("Drops messages instead of delays."))
                       .get_matches();
 
     // Get address of this peer
@@ -89,6 +94,10 @@ fn main() {
     let mut factory = MessageFactory::build(clock.clone()).me(my_addr.clone().as_str());
     if let Some(demo) = demo_addr {
         factory.demo(demo);
+    }
+    match matches.occurrences_of("r") {
+        0 => (),
+        _ => factory.drop(true),
     }
 
     // Create simple websocket that just prints out messages
